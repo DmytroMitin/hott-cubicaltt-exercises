@@ -48,21 +48,17 @@ uncurry (A B C : U) (f : A -> B -> C) : ((_ : A) * B) -> C = \(p : (_ : A) * B) 
 -- ex 6
 -- Define Sigma-type by using only Pi-type.
 
-{-
-Pi (A : U) (B : A -> U ) : U = (x : A) -> B x
-lam (A : U) (B : A -> U) (a : A) (b : B a) : A -> B a = \(x : A) -> b
-app (A : U) (B : A -> U) (a : A) (f : A -> B a) : B a = f a
-Beta (A : U) (B : A -> U) (a : A) (f : A -> B a) : Path (B a) (app A B a (lam A B a (f a))) (f a) = undefined
-Eta (A : U) (B : A -> U) (a : A) (f : A -> B a) : Path (A -> B a) f (\(x : A) -> f x) = undefined
+funExt (A : U) (B : A -> U) (f g : (x : A) -> B x)
+       (p : (x : A) -> Path (B x) (f x) (g x)) :
+       Path ((y : A) -> B y) f g = <i> \(a : A) -> (p a) @ i
 
-Sigma (A : U) (B : A -> U) : U = (x : A) * B x
-dpair (A : U) (B : A -> U) (a : A) (b : B a) : Sigma A B = (a, b)
-pr1 (A : U) (B : A -> U) (x : Sigma A B) : A = x.1
-pr2 (A : U) (B : A -> U) (x : Sigma A B) : B (pr1 A B x) = x.2
-Beta1 (A : U) (B : A -> U) (a : A) (b : B a) : Path A a (pr1 A B (a, b)) = undefined 
-Beta2 (A : U) (B : A -> U) (a : A) (b : B a) : Path (B a) b (pr2 A B (a, b)) = undefined
-Eta2 (A : U) (B : A -> U) (p : Sigma A B) : Path (Sigma A B) p (pr1 A B p, pr2 A B p) = undefined
--}
+Sigma (A B : U) : U = (C : U) -> (A -> B -> C) -> C
+pair (A B : U) (a : A) (b : B) : Sigma A B = \(C : U) -> \(c : A -> B -> C) -> c a b
+pr1 (A B : U) (x : Sigma A B) : A = x A (\(a : A) -> \(_ : B) -> a)
+pr2 (A B : U) (x : Sigma A B) : B = x B (\(_ : A) -> \(b : B) -> b)
+Beta1 (A B : U) (a : A) (b : B) : Path A a (pr1 A B (pair A B a b)) = refl A a 
+Beta2 (A B : U) (a : A) (b : B) : Path B b (pr2 A B (pair A B a b)) = refl B b
+Eta2 (A : U) (B : U) (p : Sigma A B) : Path (Sigma A B) p (pair (pr1 A B p, pr2 A B p)) = undefined  -- funExt
 
 -- ex 7
 -- Define the Fin-type by using only Sigma-type and recursion.
@@ -165,16 +161,17 @@ Bnat : bool -> U = split
 natw : U = W bool Bnat
 
 recnat_ (P : U) (alg: (a : bool) -> (Bnat a -> natw) -> (Bnat a -> P) -> P)
-   : natw -> P = Wrec bool Bnat P alg
+  : natw -> P = Wrec bool Bnat P alg
 
 recnat (A : U) (a : A) (f : nat -> A -> A) : nat -> A = split
   zero  -> a
   suc n -> f n (recnat A a f n)
 
-recnat__ (A : U) (a : A) (f : natw -> A -> A) : natw -> A = let alg : (b : bool) -> (Bnat b -> natw) -> (Bnat b -> A) -> A = split
-                                                                false -> \(_ : Void -> natw) -> \(_ : Void -> A) -> a
-                                                                true  -> \(g : Unit -> natw) -> \(h : Unit -> A) -> f (g unit) (h unit)
-                                                            in recnat_ A alg
+recnat__ (A : U) (a : A) (f : natw -> A -> A) 
+  : natw -> A = let alg : (b : bool) -> (Bnat b -> natw) -> (Bnat b -> A) -> A = split
+                      false -> \(_ : Void -> natw) -> \(_ : Void -> A) -> a
+                      true  -> \(g : Unit -> natw) -> \(h : Unit -> A) -> f (g unit) (h unit)
+                in recnat_ A alg
 
 zero_ : natw = (false, absurd natw)
 suc_ (n : natw) : natw = (true, \(_ : Unit) -> n)
@@ -218,10 +215,12 @@ listw (A : U) : U = W (orUnit A) (Blist A)
 reclist (A : U) (P : U) (alg: (a : orUnit A) -> (Blist A a -> listw A) -> (Blist A a -> P) -> P)
    : listw A -> P = Wrec (orUnit A) (Blist A) P alg
 
-reclist_ (A : U) (P : U) (p : P) (f : A -> listw A -> P -> P) : listw A -> P = let alg : (a : orUnit A) -> (Blist A a -> listw A) -> (Blist A a -> P) -> P = split
-                                                                                   orUnitL    -> \(_ : Void -> listw A) -> \(_ : Void -> P) -> p
-                                                                                   orUnitR a  -> \(g : Unit -> listw A) -> \(h : Unit -> P) -> f a (g unit) (h unit)
-                                                                               in reclist A P alg
+reclist_ (A : U) (P : U) (p : P) (f : A -> listw A -> P -> P) 
+   : listw A -> P = let alg : (a : orUnit A) -> (Blist A a -> listw A) -> (Blist A a -> P) -> P = split
+                          orUnitL    -> \(_ : Void -> listw A) -> \(_ : Void -> P) -> p
+                          orUnitR a  -> \(g : Unit -> listw A) -> \(h : Unit -> P) -> f a (g unit) (h unit)
+                    in reclist A P alg
+
 nil_ (A : U) : listw A = (orUnitL, absurd (listw A))
 cons_ (A : U) (a : A) (as : listw A) : listw A = (orUnitR a, \(_ : Unit) -> as)
 
@@ -237,6 +236,6 @@ length (A : U) (l : listw A) : nat = reclist_ A nat zero (\(a : A) -> \(as : lis
 --ack(succ(m), succ(n)) ≡ ack(m, ack(succ(m), n))              
 
 ack : natw -> natw -> natw = recnat__ (natw -> natw) (\(m : natw) -> suc_ m) (\(n : natw) -> \(ackn : natw -> natw) -> \(m : natw) ->
-  recnat__ natw (ackn one_) (\(m1 : natw) -> \(ackSnm : natw) -> ackn ackSnm) m  )
---                                                               ackSnSm
+  recnat__ natw (ackn one_) (\(m1 : natw) -> \(ackSnm1 : natw) -> ackn ackSnm1) m  )
+--                                                                ackSnSm1
 
