@@ -52,13 +52,19 @@ funExt (A : U) (B : A -> U) (f g : (x : A) -> B x)
        (p : (x : A) -> Path (B x) (f x) (g x)) :
        Path ((y : A) -> B y) f g = <i> \(a : A) -> (p a) @ i
 
-Sigma (A B : U) : U = (C : U) -> (A -> B -> C) -> C
-pair (A B : U) (a : A) (b : B) : Sigma A B = \(C : U) -> \(c : A -> B -> C) -> c a b
-pr1 (A B : U) (x : Sigma A B) : A = x A (\(a : A) -> \(_ : B) -> a)
-pr2 (A B : U) (x : Sigma A B) : B = x B (\(_ : A) -> \(b : B) -> b)
-Beta1 (A B : U) (a : A) (b : B) : Path A a (pr1 A B (pair A B a b)) = refl A a 
-Beta2 (A B : U) (a : A) (b : B) : Path B b (pr2 A B (pair A B a b)) = refl B b
-Eta2 (A : U) (B : U) (p : Sigma A B) : Path (Sigma A B) p (pair (pr1 A B p, pr2 A B p)) = undefined  -- funExt
+Sigma (A : U) (B : A -> U) (a : A) : U = (C : A -> U) -> ((a1 : A) -> B a1 -> C a1) -> C a
+deppair (A : U) (B : A -> U) (a : A) (b : B a) : Sigma A B a = \(C : A -> U) -> \(c : (a1 : A) -> B a1 -> C a1) -> c a b
+pr1 (A : U) (B : A -> U) (a : A) (x : Sigma A B a) : A = x (\(_ : A) -> A) (\(a1 : A) -> \(_ : B a1) -> a1)
+pr2 (A : U) (B : A -> U) (a : A) (x : Sigma A B a) : B a = x B (\(a1 : A) -> \(b : B a1) -> b)
+Beta1 (A : U) (B : A -> U) (a : A) (b : B a) : Path A a (pr1 A B a (deppair A B a b)) = refl A a 
+Beta2 (A : U) (B : A -> U) (a : A) (b : B a) : Path (B a) b (pr2 A B a (deppair A B a b)) = refl (B a) b
+prf (A : U) (B : A -> U) (C : A -> U) (a : A) (c : (a1 : A) -> B a1 -> C a1) (x : Sigma A B a) : Path (C a) (x C c) (c a (x B (\(a1 : A) -> \(b : B a1) -> b))) = undefined --refl (C a) (x C c)
+Eta2 (A : U) (B : A -> U) (a : A) (x : Sigma A B a) : Path (Sigma A B a) x (deppair A B a (pr2 A B a x)) = 
+  funExt (A -> U) (\(C : A -> U) -> ((a1 : A) -> B a1 -> C a1) -> C a) x (deppair A B a (pr2 A B a x)) (\(C : A -> U) ->
+    funExt ((a1 : A) -> B a1 -> C a1) (\(_ : (a1 : A) -> B a1 -> C a1) -> C a) (x C) (deppair A B a (pr2 A B a x) C) (\(c : (a1 : A) -> B a1 -> C a1) ->
+      prf A B C a c x 
+    )
+  )
 
 -- ex 7
 -- Define the Fin-type by using only Sigma-type and recursion.
